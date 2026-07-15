@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require("discord.js");
-const { getMvp } = require("../utils/mvp");
+const { getMvp } = require("../mvp");
+const maps = require("../maps");
 
 function getTeamName(team, fallback) {
   return team?.name || fallback;
@@ -20,12 +21,19 @@ function buildResultEmbed(data = {}) {
     score1 > score2
       ? getTeamName(team1, "Team 1")
       : score2 > score1
-      ? getTeamName(team2, "Team 2")
-      : "Remis";
+        ? getTeamName(team2, "Team 2")
+        : "Remis";
 
   const mvp = getMvp(team1, team2);
 
-  return new EmbedBuilder()
+  const mapKey = data.map || `de_map${data.map_number ?? 0}`;
+
+  const map = maps[mapKey] || {
+    name: data.map || `Mapa nr ${data.map_number ?? 0}`,
+    image: null
+  };
+
+  const embed = new EmbedBuilder()
     .setColor(0x00d26a)
     .setAuthor({ name: "🏆 Nexo Esports" })
     .setTitle("🏁 Mecz zakończony")
@@ -33,7 +41,7 @@ function buildResultEmbed(data = {}) {
     .addFields(
       {
         name: "🗺️ Mapa",
-        value: data.map || `Mapa nr ${data.map_number ?? 0}`,
+        value: map.name,
         inline: true
       },
       {
@@ -43,7 +51,9 @@ function buildResultEmbed(data = {}) {
       },
       {
         name: "📊 Wynik",
-        value: `**${score1} : ${score2}**`,
+        value:
+          `🔵 **${getTeamName(team1, "Team 1")} ${score1}**\n` +
+          `🟠 **${getTeamName(team2, "Team 2")} ${score2}**`,
         inline: false
       },
       {
@@ -51,13 +61,19 @@ function buildResultEmbed(data = {}) {
         value:
           `**${mvp.name}**\n` +
           `🔫 ${mvp.kills} K | ☠️ ${mvp.deaths} D\n` +
-          `🏅 ${mvp.mvp} MVP | 🎯 ${mvp.score} Score\n` +
-          `💥 ADR ${mvp.adr}`,
+          `🤝 ${mvp.assists ?? 0} A | 🏅 ${mvp.mvp} MVP\n` +
+          `🎯 ${mvp.score} Score | 💥 ${mvp.adr ?? 0} ADR`,
         inline: false
       }
     )
     .setFooter({ text: "Nexo Esports • MatchZy" })
     .setTimestamp();
+
+  if (map.image) {
+    embed.setThumbnail(map.image);
+  }
+
+  return embed;
 }
 
 module.exports = {
