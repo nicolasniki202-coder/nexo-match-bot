@@ -2,11 +2,13 @@ const express = require("express");
 const {
   Client,
   Collection,
-  EmbedBuilder,
   Events,
   GatewayIntentBits,
   MessageFlags
 } = require("discord.js");
+
+const { buildLiveEmbed } = require("./utils/embeds/liveEmbed");
+const { buildResultEmbed } = require("./utils/embeds/resultEmbed");
 
 const app = express();
 app.use(express.json());
@@ -78,132 +80,8 @@ async function getMatchChannel() {
   return channel;
 }
 
-function getTeamName(team, fallback) {
-  return team?.name || fallback;
-}
-
 function getTeamScore(team) {
   return Number(team?.score || 0);
-}
-
-function getMvp(team1 = {}, team2 = {}) {
-  const players = [...(team1.players || []), ...(team2.players || [])];
-
-  if (players.length === 0) {
-    return {
-      name: "Brak danych",
-      kills: 0,
-      deaths: 0,
-      score: 0,
-      mvp: 0
-    };
-  }
-
-  players.sort((a, b) => {
-    const scoreA = Number(a.stats?.score || 0);
-    const scoreB = Number(b.stats?.score || 0);
-
-    if (scoreB !== scoreA) {
-      return scoreB - scoreA;
-    }
-
-    const killsA = Number(a.stats?.kills || 0);
-    const killsB = Number(b.stats?.kills || 0);
-
-    return killsB - killsA;
-  });
-
-  const player = players[0];
-
-  return {
-    name: player.name || "Nieznany gracz",
-    kills: Number(player.stats?.kills || 0),
-    deaths: Number(player.stats?.deaths || 0),
-    score: Number(player.stats?.score || 0),
-    mvp: Number(player.stats?.mvp || 0)
-  };
-}
-
-function buildLiveEmbed(data) {
-  const team1 = data.team1 || {};
-  const team2 = data.team2 || {};
-
-  return new EmbedBuilder()
-    .setColor(0xffcc00)
-    .setAuthor({ name: "🏆 Nexo Esports" })
-    .setTitle("🔥 Mecz wystartował")
-    .addFields(
-      {
-        name: "🗺️ Mapa",
-        value: data.map || `Mapa nr ${data.map_number ?? 0}`,
-        inline: true
-      },
-      {
-        name: "🆔 Match ID",
-        value: String(data.matchid ?? "brak"),
-        inline: true
-      },
-      {
-        name: "⚔️ Drużyny",
-        value:
-          `${getTeamName(team1, "Team 1")} vs ` +
-          `${getTeamName(team2, "Team 2")}`,
-        inline: false
-      }
-    )
-    .setFooter({ text: "Nexo Esports • LIVE" })
-    .setTimestamp();
-}
-
-function buildResultEmbed(data) {
-  const team1 = data.team1 || {};
-  const team2 = data.team2 || {};
-
-  const score1 = getTeamScore(team1);
-  const score2 = getTeamScore(team2);
-
-  const winner =
-    score1 > score2
-      ? getTeamName(team1, "Team 1")
-      : score2 > score1
-        ? getTeamName(team2, "Team 2")
-        : "Remis";
-
-  const mvp = getMvp(team1, team2);
-
-  return new EmbedBuilder()
-    .setColor(0x00d26a)
-    .setAuthor({ name: "🏆 Nexo Esports" })
-    .setTitle("🏁 Mecz zakończony")
-    .addFields(
-      {
-        name: "🗺️ Mapa",
-        value: data.map || `Mapa nr ${data.map_number ?? 0}`,
-        inline: true
-      },
-      {
-        name: "🥇 Zwycięzca",
-        value: winner,
-        inline: true
-      },
-      {
-        name: "📊 Wynik",
-        value:
-          `**${getTeamName(team1, "Team 1")} ${score1} : ` +
-          `${score2} ${getTeamName(team2, "Team 2")}**`,
-        inline: false
-      },
-      {
-        name: "⭐ MVP",
-        value:
-          `**${mvp.name}**\n` +
-          `${mvp.kills} K • ${mvp.deaths} D • ` +
-          `${mvp.mvp} MVP • ${mvp.score} pkt`,
-        inline: false
-      }
-    )
-    .setFooter({ text: "Nexo Esports • MatchZy" })
-    .setTimestamp();
 }
 
 app.post("/", async (req, res) => {
