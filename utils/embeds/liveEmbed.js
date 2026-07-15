@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
-
+const maps = require("../maps");
 function getTeamName(team, fallback) {
   return team?.name || fallback;
 }
@@ -8,7 +8,13 @@ function buildLiveEmbed(data = {}) {
   const team1 = data.team1 || {};
   const team2 = data.team2 || {};
 
-  return new EmbedBuilder()
+  const mapKey = data.map || `de_map${data.map_number ?? 0}`;
+  const map = maps[mapKey] || {
+    name: mapKey,
+    image: null
+  };
+
+  const embed = new EmbedBuilder()
     .setColor(0xffcc00)
     .setAuthor({ name: "🏆 Nexo Esports" })
     .setTitle("🔥 Mecz wystartował")
@@ -16,7 +22,7 @@ function buildLiveEmbed(data = {}) {
     .addFields(
       {
         name: "🗺️ Mapa",
-        value: data.map || `Mapa nr ${data.map_number ?? 0}`,
+        value: map.name,
         inline: true
       },
       {
@@ -27,9 +33,9 @@ function buildLiveEmbed(data = {}) {
       {
         name: "⚔️ Drużyny",
         value:
-          `**${getTeamName(team1, "Team 1")}**\n` +
+          `🔵 **${getTeamName(team1, "Team 1")}**\n` +
           `🆚\n` +
-          `**${getTeamName(team2, "Team 2")}**`,
+          `🟠 **${getTeamName(team2, "Team 2")}**`,
         inline: false
       },
       {
@@ -40,8 +46,10 @@ function buildLiveEmbed(data = {}) {
     )
     .setFooter({ text: "Nexo Esports • MatchZy" })
     .setTimestamp();
-}
 
-module.exports = {
-  buildLiveEmbed
-};
+  if (map.image) {
+    embed.setThumbnail(map.image);
+  }
+
+  return embed;
+}
