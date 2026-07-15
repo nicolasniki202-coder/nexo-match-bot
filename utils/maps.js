@@ -41,5 +41,3 @@ const maps = {
 };
 
 module.exports = maps;
-git config --global user.name "Nicolas202"
-git config --global user.email "nicolasniki202@gmail.com"
