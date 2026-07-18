@@ -91,12 +91,94 @@ async function getMatchChannel() {
   return channel;
 }
 
-function getTeamScore(team) {
-  return Number(team?.score || 0);
-}
-
 function getMatchId(data) {
   return String(data?.matchid ?? "unknown");
+}
+
+async function createLiveMessage(channel, data) {
+  const message = await channel.send({
+    embeds: [buildLiveEmbed(data)]
+  });
+
+  matchStore.setMessage(channel.id, message.id);
+
+  console.log(
+    `Utworzono wiadomość LIVE. ID: ${message.id}`
+  );
+
+  return message;
+}
+
+async function updateLiveMessage(channel, data) {
+  const storedMessage = matchStore.getMessage();
+  const messageId = storedMessage?.messageId;
+
+  if (!messageId) {
+    console.log(
+      "Brak zapisanej wiadomości LIVE. Tworzę nową."
+    );
+
+    return createLiveMessage(channel, data);
+  }
+
+  try {
+    const message = await channel.messages.fetch(messageId);
+
+    await message.edit({
+      embeds: [buildLiveEmbed(data)]
+    });
+
+    console.log(
+      `Zaktualizowano wiadomość LIVE. ID: ${messageId}`
+    );
+
+    return message;
+  } catch (error) {
+    console.error(
+      "Nie udało się edytować wiadomości LIVE. Tworzę nową:",
+      error.message
+    );
+
+    return createLiveMessage(channel, data);
+  }
+}
+
+async function finishLiveMessage(channel, data) {
+  const storedMessage = matchStore.getMessage();
+  const messageId = storedMessage?.messageId;
+
+  if (!messageId) {
+    console.log(
+      "Brak wiadomości LIVE. Wysyłam osobne podsumowanie."
+    );
+
+    await channel.send({
+      embeds: [buildResultEmbed(data)]
+    });
+
+    return;
+  }
+
+  try {
+    const message = await channel.messages.fetch(messageId);
+
+    await message.edit({
+      embeds: [buildResultEmbed(data)]
+    });
+
+    console.log(
+      `Wiadomość LIVE zmieniona w wynik końcowy. ID: ${messageId}`
+    );
+  } catch (error) {
+    console.error(
+      "Nie udało się zmienić wiadomości LIVE w wynik końcowy:",
+      error.message
+    );
+
+    await channel.send({
+      embeds: [buildResultEmbed(data)]
+    });
+  }
 }
 
 app.post("/", async (req, res) => {
@@ -131,40 +213,28 @@ app.post("/", async (req, res) => {
       matchStore.start(data);
 
       console.log("Rozpoczęto nowy mecz.");
-      console.log("Próba wysłania embeda LIVE...");
 
-      const message = await channel.send({
-        embeds: [buildLiveEmbed(data)]
-      });
-
-      matchStore.setMessage(channel.id, message.id);
-
-      console.log(
-        `Embed LIVE wysłany. ID wiadomości: ${message.id}`
-      );
+      await createLiveMessage(channel, data);
 
       return;
     }
 
     /*
-     * KONIEC RUNDY
+     * KONIEC RUNDY — EDYCJA TEJ SAMEJ WIADOMOŚCI
      */
     if (data.event === "round_end") {
       currentMatch = data;
       matchStore.update(data);
 
-      const score1 = getTeamScore(data.team1);
-      const score2 = getTeamScore(data.team2);
+      const score1 = Number(data.team1?.score || 0);
+      const score2 = Number(data.team2?.score || 0);
 
       console.log(
         `Aktualny wynik meczu: ${score1}:${score2}`
       );
 
-      /*
-       * Na razie zapisujemy wynik.
-       * W kolejnym kroku tutaj dodamy edycję
-       * wiadomości LIVE po każdej rundzie.
-       */
+      await updateLiveMessage(channel, data);
+
       return;
     }
 
@@ -178,13 +248,9 @@ app.post("/", async (req, res) => {
     ) {
       const matchId = getMatchId(data);
 
-      /*
-       * MatchZy może wysłać kilka eventów końcowych.
-       * Dzięki temu wynik nie zostanie wysłany kilka razy.
-       */
       if (lastFinishedMatchId === matchId) {
         console.log(
-          `Wynik meczu ${matchId} został już wysłany.`
+          `Wynik meczu ${matchId} został już obsłużony.`
         );
         return;
       }
@@ -193,17 +259,15 @@ app.post("/", async (req, res) => {
       lastMatch = data;
       currentMatch = null;
 
-      matchStore.finish();
-
       console.log(
-        "Próba wysłania embeda z wynikiem końcowym..."
+        "Zmieniam wiadomość LIVE w podsumowanie meczu..."
       );
 
-      await channel.send({
-        embeds: [buildResultEmbed(data)]
-      });
+      await finishLiveMessage(channel, data);
 
-      console.log("Embed z wynikiem końcowym wysłany.");
+      matchStore.finish();
+
+      console.log("Mecz został zakończony.");
 
       return;
     }
@@ -230,7 +294,8 @@ app.get("/health", (req, res) => {
     channelId: CHANNEL_ID,
     currentMatch: Boolean(currentMatch),
     lastMatch: Boolean(lastMatch),
-    matchStoreActive: matchStore.hasLiveMatch()
+    matchStoreActive: matchStore.hasLiveMatch(),
+    liveMessage: matchStore.getMessage()
   });
 });
 
