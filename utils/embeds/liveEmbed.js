@@ -1,5 +1,6 @@
 const { EmbedBuilder } = require("discord.js");
 const maps = require("../maps");
+
 function getTeamName(team, fallback) {
   return team?.name || fallback;
 }
@@ -8,11 +9,14 @@ function buildLiveEmbed(data = {}) {
   const team1 = data.team1 || {};
   const team2 = data.team2 || {};
 
-  const mapKey = data.map || `de_map${data.map_number ?? 0}`;
-  const map = maps[mapKey] || {
-    name: mapKey,
-    image: null
-  };
+  const mapKey = data.map || null;
+
+  const map = mapKey && maps[mapKey]
+    ? maps[mapKey]
+    : {
+        name: data.map || `Mapa nr ${data.map_number ?? 0}`,
+        image: null
+      };
 
   const embed = new EmbedBuilder()
     .setColor(0xffcc00)
@@ -53,3 +57,7 @@ function buildLiveEmbed(data = {}) {
 
   return embed;
 }
+
+module.exports = {
+  buildLiveEmbed
+};
