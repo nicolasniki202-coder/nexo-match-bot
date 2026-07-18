@@ -1,4 +1,5 @@
 const express = require("express");
+
 const {
   Client,
   Collection,
@@ -7,6 +8,7 @@ const {
   MessageFlags
 } = require("discord.js");
 
+const matchStore = require("./utils/matchStore");
 const { buildLiveEmbed } = require("./utils/embeds/liveEmbed");
 const { buildResultEmbed } = require("./utils/embeds/resultEmbed");
 
@@ -35,13 +37,18 @@ client.commands = new Collection();
 
 let currentMatch = null;
 let lastMatch = null;
+let lastFinishedMatchId = null;
 
 client.once(Events.ClientReady, readyClient => {
-  console.log(`Nexo Match Bot zalogowany jako ${readyClient.user.tag}`);
+  console.log(
+    `Nexo Match Bot zalogowany jako ${readyClient.user.tag}`
+  );
 });
 
 client.on(Events.InteractionCreate, async interaction => {
-  if (!interaction.isChatInputCommand()) return;
+  if (!interaction.isChatInputCommand()) {
+    return;
+  }
 
   try {
     if (interaction.commandName === "ping") {
@@ -70,11 +77,15 @@ async function getMatchChannel() {
   const channel = await client.channels.fetch(CHANNEL_ID);
 
   if (!channel) {
-    throw new Error(`Nie znaleziono kanału o ID ${CHANNEL_ID}.`);
+    throw new Error(
+      `Nie znaleziono kanału o ID ${CHANNEL_ID}.`
+    );
   }
 
   if (!channel.isTextBased()) {
-    throw new Error(`Kanał ${CHANNEL_ID} nie jest kanałem tekstowym.`);
+    throw new Error(
+      `Kanał ${CHANNEL_ID} nie jest kanałem tekstowym.`
+    );
   }
 
   return channel;
@@ -82,6 +93,10 @@ async function getMatchChannel() {
 
 function getTeamScore(team) {
   return Number(team?.score || 0);
+}
+
+function getMatchId(data) {
+  return String(data?.matchid ?? "unknown");
 }
 
 app.post("/", async (req, res) => {
@@ -94,74 +109,113 @@ app.post("/", async (req, res) => {
 
   try {
     if (!client.isReady()) {
-      console.log("Discord nie jest jeszcze gotowy. Pomijam event.");
+      console.log(
+        "Discord nie jest jeszcze gotowy. Pomijam event."
+      );
       return;
     }
 
     const channel = await getMatchChannel();
 
     console.log(
-      `Wysyłam wiadomość na kanał: ${channel.name} (${channel.id})`
+      `Obsługuję event na kanale: ${channel.name} (${channel.id})`
     );
 
+    /*
+     * START MECZU
+     */
     if (data.event === "going_live") {
       currentMatch = data;
+      lastFinishedMatchId = null;
 
+      matchStore.start(data);
+
+      console.log("Rozpoczęto nowy mecz.");
       console.log("Próba wysłania embeda LIVE...");
 
-      await channel.send({
+      const message = await channel.send({
         embeds: [buildLiveEmbed(data)]
       });
 
-      console.log("Embed LIVE wysłany.");
+      matchStore.setMessage(channel.id, message.id);
+
+      console.log(
+        `Embed LIVE wysłany. ID wiadomości: ${message.id}`
+      );
+
       return;
     }
 
+    /*
+     * KONIEC RUNDY
+     */
     if (data.event === "round_end") {
       currentMatch = data;
+      matchStore.update(data);
 
       const score1 = getTeamScore(data.team1);
       const score2 = getTeamScore(data.team2);
 
-      console.log(`Aktualny wynik: ${score1}:${score2}`);
+      console.log(
+        `Aktualny wynik meczu: ${score1}:${score2}`
+      );
 
-      if (score1 >= 13 || score2 >= 13) {
-        lastMatch = data;
-        currentMatch = null;
-
-        console.log("Próba wysłania embeda z wynikiem...");
-
-        await channel.send({
-          embeds: [buildResultEmbed(data)]
-        });
-
-        console.log("Embed z wynikiem wysłany.");
-      }
-
+      /*
+       * Na razie zapisujemy wynik.
+       * W kolejnym kroku tutaj dodamy edycję
+       * wiadomości LIVE po każdej rundzie.
+       */
       return;
     }
 
+    /*
+     * KONIEC MECZU LUB MAPY
+     */
     if (
       data.event === "map_end" ||
       data.event === "match_end" ||
       data.event === "series_end"
     ) {
+      const matchId = getMatchId(data);
+
+      /*
+       * MatchZy może wysłać kilka eventów końcowych.
+       * Dzięki temu wynik nie zostanie wysłany kilka razy.
+       */
+      if (lastFinishedMatchId === matchId) {
+        console.log(
+          `Wynik meczu ${matchId} został już wysłany.`
+        );
+        return;
+      }
+
+      lastFinishedMatchId = matchId;
       lastMatch = data;
       currentMatch = null;
 
-      console.log("Próba wysłania embeda z wynikiem końcowym...");
+      matchStore.finish();
+
+      console.log(
+        "Próba wysłania embeda z wynikiem końcowym..."
+      );
 
       await channel.send({
         embeds: [buildResultEmbed(data)]
       });
 
       console.log("Embed z wynikiem końcowym wysłany.");
+
       return;
     }
 
-    console.log(`Event ${data.event || "brak"} nie wymaga wiadomości.`);
+    console.log(
+      `Event ${data.event || "brak"} nie wymaga wiadomości.`
+    );
   } catch (error) {
-    console.error("Błąd obsługi webhooka MatchZy:", error);
+    console.error(
+      "Błąd obsługi webhooka MatchZy:",
+      error
+    );
   }
 });
 
@@ -175,7 +229,8 @@ app.get("/health", (req, res) => {
     discordReady: client.isReady(),
     channelId: CHANNEL_ID,
     currentMatch: Boolean(currentMatch),
-    lastMatch: Boolean(lastMatch)
+    lastMatch: Boolean(lastMatch),
+    matchStoreActive: matchStore.hasLiveMatch()
   });
 });
 
@@ -184,6 +239,10 @@ app.listen(PORT, () => {
 });
 
 client.login(TOKEN).catch(error => {
-  console.error("Nie udało się zalogować bota do Discorda:", error);
+  console.error(
+    "Nie udało się zalogować bota do Discorda:",
+    error
+  );
+
   process.exit(1);
 });
