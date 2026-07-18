@@ -1,4 +1,8 @@
-const { REST, Routes, SlashCommandBuilder } = require("discord.js");
+const {
+  REST,
+  Routes,
+  SlashCommandBuilder
+} = require("discord.js");
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
@@ -15,6 +19,11 @@ const commands = [
   new SlashCommandBuilder()
     .setName("ping")
     .setDescription("Sprawdza, czy Nexo Match Bot działa.")
+    .toJSON(),
+
+  new SlashCommandBuilder()
+    .setName("live")
+    .setDescription("Pokazuje aktualnie trwający mecz.")
     .toJSON()
 ];
 
@@ -29,7 +38,7 @@ async function deployCommands() {
       { body: commands }
     );
 
-    console.log("Komenda /ping została zarejestrowana.");
+    console.log("Komendy /ping i /live zostały zarejestrowane.");
   } catch (error) {
     console.error("Nie udało się zarejestrować komend:", error);
     process.exit(1);

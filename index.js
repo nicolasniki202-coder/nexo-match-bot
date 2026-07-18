@@ -52,11 +52,33 @@ client.on(Events.InteractionCreate, async interaction => {
 
   try {
     if (interaction.commandName === "ping") {
-      await interaction.reply({
-        content: "🏓 Nexo Match Bot działa!",
-        flags: MessageFlags.Ephemeral
-      });
-    }
+  await interaction.reply({
+    content: "🏓 Nexo Match Bot działa!",
+    flags: MessageFlags.Ephemeral
+  });
+
+  return;
+}
+
+if (interaction.commandName === "live") {
+  const liveMatch = matchStore.getMatch();
+
+  if (!liveMatch) {
+    await interaction.reply({
+      content: "⚪ Aktualnie nie trwa żaden mecz.",
+      flags: MessageFlags.Ephemeral
+    });
+
+    return;
+  }
+
+  await interaction.reply({
+    embeds: [buildLiveEmbed(liveMatch)],
+    flags: MessageFlags.Ephemeral
+  });
+
+  return;
+}
   } catch (error) {
     console.error("Błąd obsługi komendy:", error);
 
