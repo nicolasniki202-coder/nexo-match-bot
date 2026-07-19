@@ -96,14 +96,9 @@ async function registerCommands() {
   }
 }
 
-client.once(Events.ClientReady, async readyClient => {
-  console.log(
-    `Nexo Match Bot zalogowany jako ${readyClient.user.tag}`
-  );
+const { onReady } = require("./events/ready");
 
-  await testConnection();
-  await registerCommands();
-});
+client.once(Events.ClientReady, onReady);
 
 client.on(Events.InteractionCreate, async interaction => {
   if (!interaction.isChatInputCommand()) {
