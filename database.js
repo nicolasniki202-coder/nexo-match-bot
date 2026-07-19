@@ -37,25 +37,40 @@ async function initializeDatabase() {
 
     console.log("✅ Tabela matches jest gotowa.");
   } catch (error) {
-    console.error("❌ Błąd inicjalizacji bazy danych:", error);
+    console.error(
+      "❌ Błąd inicjalizacji bazy danych:",
+      error
+    );
+
     throw error;
   } finally {
     client.release();
   }
 }
 
+async function testConnection() {
+  await initializeDatabase();
+}
+
 async function saveMatch(data = {}) {
-  const matchId = String(data.matchid ?? data.match_id ?? "unknown");
+  const matchId = String(
+    data.matchid ?? data.match_id ?? "unknown"
+  );
 
   if (matchId === "unknown") {
-    throw new Error("Nie można zapisać meczu bez matchid.");
+    throw new Error(
+      "Nie można zapisać meczu bez matchid."
+    );
   }
 
   const team1 = data.team1 || {};
   const team2 = data.team2 || {};
 
-  const team1Name = team1.name || team1.team || "Team 1";
-  const team2Name = team2.name || team2.team || "Team 2";
+  const team1Name =
+    team1.name || team1.team || "Team 1";
+
+  const team2Name =
+    team2.name || team2.team || "Team 2";
 
   const team1Score = Number(team1.score || 0);
   const team2Score = Number(team2.score || 0);
@@ -82,7 +97,10 @@ async function saveMatch(data = {}) {
         match_data,
         finished_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+      VALUES (
+        $1, $2, $3, $4, $5,
+        $6, $7, $8, $9, NOW()
+      )
       ON CONFLICT (match_id)
       DO UPDATE SET
         event_name = EXCLUDED.event_name,
@@ -125,6 +143,7 @@ async function getLastMatch() {
 module.exports = {
   pool,
   initializeDatabase,
+  testConnection,
   saveMatch,
   getLastMatch
 };
