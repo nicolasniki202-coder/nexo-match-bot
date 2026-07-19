@@ -11,6 +11,7 @@ const {
   SlashCommandBuilder
 } = require("discord.js");
 
+const { testConnection } = require("./database");
 const matchStore = require("./utils/matchStore");
 const { buildLiveEmbed } = require("./utils/embeds/liveEmbed");
 const { buildResultEmbed } = require("./utils/embeds/resultEmbed");
@@ -100,6 +101,7 @@ client.once(Events.ClientReady, async readyClient => {
     `Nexo Match Bot zalogowany jako ${readyClient.user.tag}`
   );
 
+  await testConnection();
   await registerCommands();
 });
 
@@ -109,9 +111,6 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 
   try {
-    /*
-     * KOMENDA /PING
-     */
     if (interaction.commandName === "ping") {
       await interaction.reply({
         content: "🏓 Nexo Match Bot działa!",
@@ -121,9 +120,6 @@ client.on(Events.InteractionCreate, async interaction => {
       return;
     }
 
-    /*
-     * KOMENDA /LIVE
-     */
     if (interaction.commandName === "live") {
       const liveMatch = matchStore.getMatch();
 
@@ -144,9 +140,6 @@ client.on(Events.InteractionCreate, async interaction => {
       return;
     }
 
-    /*
-     * KOMENDA /LASTMATCH
-     */
     if (interaction.commandName === "lastmatch") {
       if (!lastMatch) {
         await interaction.reply({
@@ -319,9 +312,6 @@ app.post("/", async (req, res) => {
       `Obsługuję event na kanale: ${channel.name} (${channel.id})`
     );
 
-    /*
-     * START MECZU
-     */
     if (data.event === "going_live") {
       currentMatch = data;
       lastFinishedMatchId = null;
@@ -335,9 +325,6 @@ app.post("/", async (req, res) => {
       return;
     }
 
-    /*
-     * KONIEC RUNDY
-     */
     if (data.event === "round_end") {
       currentMatch = data;
       matchStore.update(data);
@@ -354,9 +341,6 @@ app.post("/", async (req, res) => {
       return;
     }
 
-    /*
-     * KONIEC MECZU LUB MAPY
-     */
     if (
       data.event === "map_end" ||
       data.event === "match_end" ||
