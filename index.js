@@ -5,7 +5,10 @@ const {
   Collection,
   Events,
   GatewayIntentBits,
-  MessageFlags
+  MessageFlags,
+  REST,
+  Routes,
+  SlashCommandBuilder
 } = require("discord.js");
 
 const matchStore = require("./utils/matchStore");
@@ -17,6 +20,8 @@ app.use(express.json());
 
 const TOKEN = process.env.DISCORD_TOKEN;
 const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
+const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
+const GUILD_ID = process.env.DISCORD_GUILD_ID;
 const PORT = process.env.PORT || 3000;
 
 if (!TOKEN) {
@@ -26,6 +31,16 @@ if (!TOKEN) {
 
 if (!CHANNEL_ID) {
   console.error("Brak zmiennej DISCORD_CHANNEL_ID.");
+  process.exit(1);
+}
+
+if (!CLIENT_ID) {
+  console.error("Brak zmiennej DISCORD_CLIENT_ID.");
+  process.exit(1);
+}
+
+if (!GUILD_ID) {
+  console.error("Brak zmiennej DISCORD_GUILD_ID.");
   process.exit(1);
 }
 
@@ -39,10 +54,53 @@ let currentMatch = null;
 let lastMatch = null;
 let lastFinishedMatchId = null;
 
-client.once(Events.ClientReady, readyClient => {
+const commands = [
+  new SlashCommandBuilder()
+    .setName("ping")
+    .setDescription("Sprawdza, czy Nexo Match Bot działa.")
+    .toJSON(),
+
+  new SlashCommandBuilder()
+    .setName("live")
+    .setDescription("Pokazuje aktualnie trwający mecz.")
+    .toJSON(),
+
+  new SlashCommandBuilder()
+    .setName("lastmatch")
+    .setDescription("Pokazuje ostatnio zakończony mecz.")
+    .toJSON()
+];
+
+async function registerCommands() {
+  try {
+    const rest = new REST({ version: "10" }).setToken(TOKEN);
+
+    console.log("Rejestrowanie komend Discord...");
+
+    await rest.put(
+      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+      {
+        body: commands
+      }
+    );
+
+    console.log(
+      "Komendy /ping, /live i /lastmatch zostały zarejestrowane."
+    );
+  } catch (error) {
+    console.error(
+      "Nie udało się zarejestrować komend Discord:",
+      error
+    );
+  }
+}
+
+client.once(Events.ClientReady, async readyClient => {
   console.log(
     `Nexo Match Bot zalogowany jako ${readyClient.user.tag}`
   );
+
+  await registerCommands();
 });
 
 client.on(Events.InteractionCreate, async interaction => {
@@ -51,34 +109,62 @@ client.on(Events.InteractionCreate, async interaction => {
   }
 
   try {
+    /*
+     * KOMENDA /PING
+     */
     if (interaction.commandName === "ping") {
-  await interaction.reply({
-    content: "🏓 Nexo Match Bot działa!",
-    flags: MessageFlags.Ephemeral
-  });
+      await interaction.reply({
+        content: "🏓 Nexo Match Bot działa!",
+        flags: MessageFlags.Ephemeral
+      });
 
-  return;
-}
+      return;
+    }
 
-if (interaction.commandName === "live") {
-  const liveMatch = matchStore.getMatch();
+    /*
+     * KOMENDA /LIVE
+     */
+    if (interaction.commandName === "live") {
+      const liveMatch = matchStore.getMatch();
 
-  if (!liveMatch) {
-    await interaction.reply({
-      content: "⚪ Aktualnie nie trwa żaden mecz.",
-      flags: MessageFlags.Ephemeral
-    });
+      if (!liveMatch) {
+        await interaction.reply({
+          content: "⚪ Aktualnie nie trwa żaden mecz.",
+          flags: MessageFlags.Ephemeral
+        });
 
-    return;
-  }
+        return;
+      }
 
-  await interaction.reply({
-    embeds: [buildLiveEmbed(liveMatch)],
-    flags: MessageFlags.Ephemeral
-  });
+      await interaction.reply({
+        embeds: [buildLiveEmbed(liveMatch)],
+        flags: MessageFlags.Ephemeral
+      });
 
-  return;
-}
+      return;
+    }
+
+    /*
+     * KOMENDA /LASTMATCH
+     */
+    if (interaction.commandName === "lastmatch") {
+      if (!lastMatch) {
+        await interaction.reply({
+          content:
+            "⚪ Nie rozegrano jeszcze żadnego meczu od ostatniego uruchomienia bota.",
+          flags: MessageFlags.Ephemeral
+        });
+
+        return;
+      }
+
+      await interaction.reply({
+        embeds: [buildResultEmbed(lastMatch)],
+        flags: MessageFlags.Ephemeral
+      });
+
+      return;
+    }
   } catch (error) {
     console.error("Błąd obsługi komendy:", error);
 
@@ -87,10 +173,17 @@ if (interaction.commandName === "live") {
       flags: MessageFlags.Ephemeral
     };
 
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp(response);
-    } else {
-      await interaction.reply(response);
+    try {
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp(response);
+      } else {
+        await interaction.reply(response);
+      }
+    } catch (replyError) {
+      console.error(
+        "Nie udało się wysłać informacji o błędzie:",
+        replyError
+      );
     }
   }
 });
@@ -216,6 +309,7 @@ app.post("/", async (req, res) => {
       console.log(
         "Discord nie jest jeszcze gotowy. Pomijam event."
       );
+
       return;
     }
 
@@ -242,7 +336,7 @@ app.post("/", async (req, res) => {
     }
 
     /*
-     * KONIEC RUNDY — EDYCJA TEJ SAMEJ WIADOMOŚCI
+     * KONIEC RUNDY
      */
     if (data.event === "round_end") {
       currentMatch = data;
@@ -274,6 +368,7 @@ app.post("/", async (req, res) => {
         console.log(
           `Wynik meczu ${matchId} został już obsłużony.`
         );
+
         return;
       }
 

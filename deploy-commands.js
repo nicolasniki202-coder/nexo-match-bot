@@ -24,6 +24,11 @@ const commands = [
   new SlashCommandBuilder()
     .setName("live")
     .setDescription("Pokazuje aktualnie trwający mecz.")
+    .toJSON(),
+
+  new SlashCommandBuilder()
+    .setName("lastmatch")
+    .setDescription("Pokazuje ostatnio zakończony mecz.")
     .toJSON()
 ];
 
@@ -38,7 +43,9 @@ async function deployCommands() {
       { body: commands }
     );
 
-    console.log("Komendy /ping i /live zostały zarejestrowane.");
+    console.log(
+      "Komendy /ping, /live i /lastmatch zostały zarejestrowane."
+    );
   } catch (error) {
     console.error("Nie udało się zarejestrować komend:", error);
     process.exit(1);
