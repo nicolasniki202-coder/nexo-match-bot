@@ -30,10 +30,6 @@ async function updateLiveMessage(
   const messageId = storedMessage?.messageId;
 
   if (!messageId) {
-    console.log(
-      "Brak zapisanej wiadomości LIVE. Tworzę nową."
-    );
-
     return createLiveMessage(
       channel,
       data,
@@ -54,12 +50,7 @@ async function updateLiveMessage(
     );
 
     return message;
-  } catch (error) {
-    console.error(
-      "Nie udało się edytować wiadomości LIVE. Tworzę nową:",
-      error.message
-    );
-
+  } catch {
     return createLiveMessage(
       channel,
       data,
@@ -69,9 +60,44 @@ async function updateLiveMessage(
   }
 }
 
+async function finishLiveMessage(
+  channel,
+  data,
+  matchStore,
+  buildResultEmbed
+) {
+  const storedMessage = matchStore.getMessage();
+  const messageId = storedMessage?.messageId;
+
+  if (!messageId) {
+    await channel.send({
+      embeds: [buildResultEmbed(data)]
+    });
+
+    return;
+  }
+
+  try {
+    const message = await channel.messages.fetch(messageId);
+
+    await message.edit({
+      embeds: [buildResultEmbed(data)]
+    });
+
+    console.log(
+      `Wiadomość LIVE zmieniona w wynik końcowy.`
+    );
+  } catch {
+    await channel.send({
+      embeds: [buildResultEmbed(data)]
+    });
+  }
+}
+
 module.exports = {
   getMatchId,
   getTeamScore,
   createLiveMessage,
-  updateLiveMessage
+  updateLiveMessage,
+  finishLiveMessage
 };

@@ -1,7 +1,8 @@
 const {
   getMatchId,
   createLiveMessage,
-  updateLiveMessage
+  updateLiveMessage,
+  finishLiveMessage
 } = require("./services/webhookService");
 const { onInteractionCreate } = require("./events/interactionCreate");
 const express = require("express");
@@ -128,21 +129,7 @@ async function getMatchChannel() {
   return channel;
 }
 
-async function finishLiveMessage(channel, data) {
-  const storedMessage = matchStore.getMessage();
-  const messageId = storedMessage?.messageId;
 
-  if (!messageId) {
-    console.log(
-      "Brak wiadomości LIVE. Wysyłam osobne podsumowanie."
-    );
-
-    await channel.send({
-      embeds: [buildResultEmbed(data)]
-    });
-
-    return;
-  }
 
   try {
     const message = await channel.messages.fetch(messageId);
@@ -164,7 +151,7 @@ async function finishLiveMessage(channel, data) {
       embeds: [buildResultEmbed(data)]
     });
   }
-}
+
 
 app.post("/", async (req, res) => {
   const data = req.body;
@@ -251,7 +238,12 @@ app.post("/", async (req, res) => {
         "Zmieniam wiadomość LIVE w podsumowanie meczu..."
       );
 
-      await finishLiveMessage(channel, data);
+      await finishLiveMessage(
+  channel,
+  data,
+  matchStore,
+  buildResultEmbed
+);
 
       matchStore.finish();
 
