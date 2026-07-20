@@ -1,3 +1,4 @@
+const { onInteractionCreate } = require("./events/interactionCreate");
 const express = require("express");
 
 const {
@@ -101,79 +102,7 @@ const { onReady } = require("./events/ready");
 client.once(Events.ClientReady, onReady);
 
 client.on(Events.InteractionCreate, async interaction => {
-  if (!interaction.isChatInputCommand()) {
-    return;
-  }
-
-  try {
-    if (interaction.commandName === "ping") {
-      await interaction.reply({
-        content: "🏓 Nexo Match Bot działa!",
-        flags: MessageFlags.Ephemeral
-      });
-
-      return;
-    }
-
-    if (interaction.commandName === "live") {
-      const liveMatch = matchStore.getMatch();
-
-      if (!liveMatch) {
-        await interaction.reply({
-          content: "⚪ Aktualnie nie trwa żaden mecz.",
-          flags: MessageFlags.Ephemeral
-        });
-
-        return;
-      }
-
-      await interaction.reply({
-        embeds: [buildLiveEmbed(liveMatch)],
-        flags: MessageFlags.Ephemeral
-      });
-
-      return;
-    }
-
-    if (interaction.commandName === "lastmatch") {
-      if (!lastMatch) {
-        await interaction.reply({
-          content:
-            "⚪ Nie rozegrano jeszcze żadnego meczu od ostatniego uruchomienia bota.",
-          flags: MessageFlags.Ephemeral
-        });
-
-        return;
-      }
-
-      await interaction.reply({
-        embeds: [buildResultEmbed(lastMatch)],
-        flags: MessageFlags.Ephemeral
-      });
-
-      return;
-    }
-  } catch (error) {
-    console.error("Błąd obsługi komendy:", error);
-
-    const response = {
-      content: "❌ Wystąpił błąd podczas wykonywania komendy.",
-      flags: MessageFlags.Ephemeral
-    };
-
-    try {
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp(response);
-      } else {
-        await interaction.reply(response);
-      }
-    } catch (replyError) {
-      console.error(
-        "Nie udało się wysłać informacji o błędzie:",
-        replyError
-      );
-    }
-  }
+  await onInteractionCreate(interaction, lastMatch);
 });
 
 async function getMatchChannel() {
