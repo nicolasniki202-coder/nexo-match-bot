@@ -1,3 +1,8 @@
+const {
+  getMatchId,
+  createLiveMessage,
+  updateLiveMessage
+} = require("./services/webhookService");
 const { onInteractionCreate } = require("./events/interactionCreate");
 const express = require("express");
 
@@ -123,36 +128,6 @@ async function getMatchChannel() {
   return channel;
 }
 
-function getMatchId(data) {
-  return String(data?.matchid ?? "unknown");
-}
-
-async function createLiveMessage(channel, data) {
-  const message = await channel.send({
-    embeds: [buildLiveEmbed(data)]
-  });
-
-  matchStore.setMessage(channel.id, message.id);
-
-  console.log(
-    `Utworzono wiadomość LIVE. ID: ${message.id}`
-  );
-
-  return message;
-}
-
-async function updateLiveMessage(channel, data) {
-  const storedMessage = matchStore.getMessage();
-  const messageId = storedMessage?.messageId;
-
-  if (!messageId) {
-    console.log(
-      "Brak zapisanej wiadomości LIVE. Tworzę nową."
-    );
-
-    return createLiveMessage(channel, data);
-  }
-
   try {
     const message = await channel.messages.fetch(messageId);
 
@@ -173,7 +148,7 @@ async function updateLiveMessage(channel, data) {
 
     return createLiveMessage(channel, data);
   }
-}
+
 
 async function finishLiveMessage(channel, data) {
   const storedMessage = matchStore.getMessage();
@@ -244,7 +219,12 @@ app.post("/", async (req, res) => {
 
       console.log("Rozpoczęto nowy mecz.");
 
-      await createLiveMessage(channel, data);
+      await createLiveMessage(
+  channel,
+  data,
+  matchStore,
+  buildLiveEmbed
+);
 
       return;
     }
@@ -260,7 +240,12 @@ app.post("/", async (req, res) => {
         `Aktualny wynik meczu: ${score1}:${score2}`
       );
 
-      await updateLiveMessage(channel, data);
+      await updateLiveMessage(
+  channel,
+  data,
+  matchStore,
+  buildLiveEmbed
+);
 
       return;
     }
