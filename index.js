@@ -128,28 +128,6 @@ async function getMatchChannel() {
   return channel;
 }
 
-  try {
-    const message = await channel.messages.fetch(messageId);
-
-    await message.edit({
-      embeds: [buildLiveEmbed(data)]
-    });
-
-    console.log(
-      `Zaktualizowano wiadomość LIVE. ID: ${messageId}`
-    );
-
-    return message;
-  } catch (error) {
-    console.error(
-      "Nie udało się edytować wiadomości LIVE. Tworzę nową:",
-      error.message
-    );
-
-    return createLiveMessage(channel, data);
-  }
-
-
 async function finishLiveMessage(channel, data) {
   const storedMessage = matchStore.getMessage();
   const messageId = storedMessage?.messageId;
