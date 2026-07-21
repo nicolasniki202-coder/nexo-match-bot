@@ -22,6 +22,11 @@ const commands = [
   new SlashCommandBuilder()
     .setName("lastmatch")
     .setDescription("Pokazuje ostatnio zakończony mecz.")
+    .toJSON(),
+
+  new SlashCommandBuilder()
+    .setName("history")
+    .setDescription("Pokazuje 5 ostatnich meczów.")
     .toJSON()
 ];
 
@@ -40,9 +45,9 @@ async function registerCommands() {
     }
   );
 
-  console.log(
-    "Komendy /ping, /live i /lastmatch zostały zarejestrowane."
-  );
+ console.log(
+  "Komendy /ping, /live, /lastmatch i /history zostały zarejestrowane."
+);
 }
 
 module.exports = {

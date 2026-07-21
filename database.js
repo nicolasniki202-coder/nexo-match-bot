@@ -139,11 +139,32 @@ async function getLastMatch() {
 
   return result.rows[0]?.match_data || null;
 }
+async function getMatchHistory(limit = 5) {
+  const result = await pool.query(
+    `
+      SELECT
+        match_id,
+        map_name,
+        team1_name,
+        team2_name,
+        team1_score,
+        team2_score,
+        winner_name,
+        finished_at
+      FROM matches
+      ORDER BY finished_at DESC
+      LIMIT $1;
+    `,
+    [limit]
+  );
 
+  return result.rows;
+}
 module.exports = {
   pool,
   initializeDatabase,
   testConnection,
   saveMatch,
-  getLastMatch
+  getLastMatch,
+  getMatchHistory
 };

@@ -28,6 +28,8 @@ const {
   buildResultEmbed
 } = require("./utils/embeds/resultEmbed");
 
+const { saveMatch } = require("./database");
+
 const app = express();
 
 app.use(express.json());
@@ -240,13 +242,15 @@ app.post("/", async (req, res) => {
       );
 
       await finishLiveMessage(
-        channel,
-        data,
-        matchStore,
-        buildResultEmbed
-      );
+  channel,
+  data,
+  matchStore,
+  buildResultEmbed
+);
 
-      matchStore.finish();
+await saveMatch(data);
+
+matchStore.finish();
 
       console.log("Mecz został zakończony.");
 
