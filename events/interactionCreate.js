@@ -1,4 +1,5 @@
 const {
+  EmbedBuilder,
   MessageFlags
 } = require("discord.js");
 
@@ -15,6 +16,66 @@ const {
 const {
   buildResultEmbed
 } = require("../utils/embeds/resultEmbed");
+
+function formatMatchDate(date) {
+  if (!date) {
+    return "Brak daty";
+  }
+
+  return new Intl.DateTimeFormat("pl-PL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Warsaw"
+  }).format(new Date(date));
+}
+
+function buildHistoryEmbed(matches) {
+  const embed = new EmbedBuilder()
+    .setTitle("🏆 Historia meczów Nexo Esports")
+    .setDescription(
+      "Pięć ostatnich zakończonych meczów zapisanych w bazie."
+    )
+    .setTimestamp()
+    .setFooter({
+      text: "Nexo Match Bot 3.0"
+    });
+
+  matches.forEach((match, index) => {
+    const mapName =
+      match.map_name || "Nieznana mapa";
+
+    const team1Name =
+      match.team1_name || "Team 1";
+
+    const team2Name =
+      match.team2_name || "Team 2";
+
+    const team1Score =
+      Number(match.team1_score || 0);
+
+    const team2Score =
+      Number(match.team2_score || 0);
+
+    const winner =
+      match.winner_name || "Brak rozstrzygnięcia";
+
+    const matchDate =
+      formatMatchDate(match.finished_at);
+
+    embed.addFields({
+      name: `${index + 1}. 🗺️ ${mapName}`,
+      value:
+        `**${team1Name}** ${team1Score} : ${team2Score} **${team2Name}**\n` +
+        `🏅 Zwycięzca: **${winner}**\n` +
+        `📅 ${matchDate}`
+    });
+  });
+
+  return embed;
+}
 
 async function onInteractionCreate(interaction, lastMatch) {
   if (!interaction.isChatInputCommand()) {
@@ -82,33 +143,8 @@ async function onInteractionCreate(interaction, lastMatch) {
       return;
     }
 
-    const historyText = matches
-      .map((match, index) => {
-        const mapName =
-          match.map_name || "Nieznana mapa";
-
-        const team1Name =
-          match.team1_name || "Team 1";
-
-        const team2Name =
-          match.team2_name || "Team 2";
-
-        const team1Score =
-          Number(match.team1_score || 0);
-
-        const team2Score =
-          Number(match.team2_score || 0);
-
-        return (
-          `**${index + 1}. ${mapName}**\n` +
-          `${team1Name} **${team1Score}:${team2Score}** ${team2Name}`
-        );
-      })
-      .join("\n\n");
-
     await interaction.reply({
-      content:
-        `🏆 **Ostatnie mecze Nexo Esports**\n\n${historyText}`,
+      embeds: [buildHistoryEmbed(matches)],
       flags: MessageFlags.Ephemeral
     });
 
